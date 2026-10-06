@@ -23,7 +23,7 @@ services:
       DATABASE_URL: sqlite:////app/data/chats.db
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: qwen3:8b
-      OLLAMA_TIMEOUT_SECONDS: "300"
+      OLLAMA_TIMEOUT_SECONDS: "120"
       CORS_ORIGINS: http://localhost:3000
     ports:
       - "127.0.0.1:8080:8000"

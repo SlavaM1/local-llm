@@ -18,7 +18,12 @@ class OllamaService:
         self.timeout = settings.ollama_timeout_seconds
 
     async def chat(self, messages: list[dict[str, str]]) -> str:
-        payload = {"model": self.model, "messages": messages, "stream": False}
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+            "think": False,
+        }
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:

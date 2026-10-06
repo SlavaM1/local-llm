@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from collections import defaultdict
+from time import perf_counter
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
@@ -87,14 +88,21 @@ async def send_message(
     payload: MessageCreate,
     db: Session = Depends(get_db),
 ) -> MessageExchange:
+    request_started = perf_counter()
+    logger.info("[chat=%s] request received", chat_id)
     async with chat_locks[chat_id]:
-        return await process_message(chat_id, payload, db)
+        exchange = await process_message(chat_id, payload, db, request_started)
+    logger.info(
+        "[chat=%s] response ready in %.3fs", chat_id, perf_counter() - request_started
+    )
+    return exchange
 
 
 async def process_message(
     chat_id: int,
     payload: MessageCreate,
     db: Session,
+    request_started: float,
 ) -> MessageExchange:
     chat = find_chat_or_404(chat_id, db)
     had_user_messages = db.scalar(
@@ -111,6 +119,11 @@ async def process_message(
         db.add(user_message)
         db.commit()
         db.refresh(user_message)
+        logger.info(
+            "[chat=%s] user message persisted in %.3fs",
+            chat_id,
+            perf_counter() - request_started,
+        )
     except SQLAlchemyError as exc:
         db.rollback()
         logger.exception("Could not persist user message for chat %s", chat_id)
@@ -122,12 +135,34 @@ async def process_message(
     ollama_messages = [
         {"role": message.role, "content": message.content} for message in history
     ]
+    total_chars = sum(len(message["content"]) for message in ollama_messages)
+    logger.info(
+        "[chat=%s] history loaded: %s messages, %s chars in %.3fs",
+        chat_id,
+        len(ollama_messages),
+        total_chars,
+        perf_counter() - request_started,
+    )
+
+    # End the implicit read transaction before waiting for model generation.
+    db.commit()
 
     service = OllamaService(get_settings())
+    ollama_started = perf_counter()
+    logger.info(
+        "[chat=%s] sending request to Ollama: model=%s stream=false think=false",
+        chat_id,
+        service.model,
+    )
     try:
         answer = await service.chat(ollama_messages)
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    logger.info(
+        "[chat=%s] Ollama response received after %.3fs",
+        chat_id,
+        perf_counter() - ollama_started,
+    )
 
     assistant_message = Message(chat_id=chat_id, role="assistant", content=answer)
     chat.updated_at = utc_now()
@@ -136,6 +171,11 @@ async def process_message(
         db.commit()
         db.refresh(assistant_message)
         db.refresh(chat)
+        logger.info(
+            "[chat=%s] assistant message persisted in %.3fs",
+            chat_id,
+            perf_counter() - request_started,
+        )
     except SQLAlchemyError as exc:
         db.rollback()
         logger.exception("Could not persist assistant response for chat %s", chat_id)
