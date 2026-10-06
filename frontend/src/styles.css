@@ -1,0 +1,131 @@
+:root {
+  color-scheme: light;
+  font-family: 'Manrope Variable', 'Segoe UI', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 320px;
+  color: #172641;
+  background: #f3f6fa;
+}
+
+button,
+textarea {
+  font-family: inherit;
+}
+
+button:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #ffad42;
+  outline-offset: 2px;
+}
+
+.markdown {
+  max-width: 76ch;
+  color: #263750;
+  font-size: 14px;
+  line-height: 1.72;
+  overflow-wrap: anywhere;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown pre,
+.markdown blockquote {
+  margin: 0 0 14px;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  margin: 24px 0 10px;
+  color: #152844;
+  line-height: 1.3;
+}
+
+.markdown h1 {
+  font-size: 21px;
+}
+
+.markdown h2 {
+  font-size: 18px;
+}
+
+.markdown h3 {
+  font-size: 16px;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 23px;
+}
+
+.markdown li + li {
+  margin-top: 5px;
+}
+
+.markdown code {
+  padding: 2px 5px;
+  color: #244ba9;
+  border: 1px solid #d7dfed;
+  border-radius: 5px;
+  background: #edf1f7;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.86em;
+}
+
+.markdown pre {
+  max-width: 100%;
+  padding: 17px 18px;
+  color: #dce7ff;
+  border: 1px solid #263e67;
+  border-radius: 11px;
+  background: #172b4d;
+  overflow-x: auto;
+}
+
+.markdown pre code {
+  padding: 0;
+  color: inherit;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.markdown blockquote {
+  padding-left: 15px;
+  color: #64738c;
+  border-left: 3px solid #9eb2e6;
+}
+
+.markdown a {
+  color: #315ee7;
+}
+
+::selection {
+  color: #10254a;
+  background: #c9d7ff;
+}

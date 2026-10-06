@@ -1,0 +1,60 @@
+name: local-llm
+
+services:
+  ollama:
+    image: alpine/socat:1.8.0.3
+    command:
+      - TCP-LISTEN:11434,fork,reuseaddr
+      - TCP:host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: sqlite:////app/data/chats.db
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: qwen3:8b
+      OLLAMA_TIMEOUT_SECONDS: "300"
+      CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "127.0.0.1:8080:8000"
+    volumes:
+      - chat_data:/app/data
+    depends_on:
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "127.0.0.1:3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  chat_data:
