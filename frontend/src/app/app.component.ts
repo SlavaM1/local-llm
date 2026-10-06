@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { finalize } from 'rxjs';
 
 import { ChatApiService } from './chat-api.service';
@@ -30,8 +30,8 @@ import { SidebarComponent } from './sidebar.component';
       <app-chat-panel
         [activeChat]="activeChat"
         [messages]="messages"
-        [loading]="sending && sendingChatId === activeChat?.id"
-        [busy]="sending"
+        [loading]="isSending(activeChat?.id)"
+        [busy]="isSending(activeChat?.id)"
         [loadingHistory]="loadingMessages"
         [errorMessage]="errorMessage"
         (send)="sendMessage($event)"
@@ -59,19 +59,19 @@ import { SidebarComponent } from './sidebar.component';
 })
 export class AppComponent implements OnInit {
   private readonly api = inject(ChatApiService);
+  private readonly changeDetector = inject(ChangeDetectorRef);
 
   chats: Chat[] = [];
   activeChat: Chat | null = null;
   messages: Message[] = [];
   ollamaAvailable = false;
   creatingChat = false;
-  sending = false;
-  sendingChatId: number | null = null;
   loadingMessages = false;
   sidebarOpen = false;
   errorMessage = '';
   private messageRequestId = 0;
   private chatListRevision = 0;
+  private readonly sendingChatIds = new Set<number>();
 
   ngOnInit(): void {
     this.api.getHealth().subscribe({
@@ -89,12 +89,22 @@ export class AppComponent implements OnInit {
     this.errorMessage = '';
     this.api
       .createChat()
-      .pipe(finalize(() => (this.creatingChat = false)))
+      .pipe(
+        finalize(() => {
+          this.creatingChat = false;
+          this.changeDetector.markForCheck();
+        }),
+      )
       .subscribe({
         next: (chat) => {
           this.chatListRevision++;
           this.chats = [chat, ...this.chats];
-          this.selectChat(chat);
+          this.messageRequestId++;
+          this.activeChat = chat;
+          this.messages = [];
+          this.loadingMessages = false;
+          this.sidebarOpen = false;
+          this.changeDetector.markForCheck();
         },
         error: (error: HttpErrorResponse) => (this.errorMessage = this.readError(error)),
       });
@@ -113,6 +123,7 @@ export class AppComponent implements OnInit {
         finalize(() => {
           if (requestId === this.messageRequestId) {
             this.loadingMessages = false;
+            this.changeDetector.markForCheck();
           }
         }),
       )
@@ -149,7 +160,7 @@ export class AppComponent implements OnInit {
 
   sendMessage(content: string): void {
     const chat = this.activeChat;
-    if (!chat || this.sending) {
+    if (!chat || this.sendingChatIds.has(chat.id)) {
       return;
     }
 
@@ -164,16 +175,15 @@ export class AppComponent implements OnInit {
         created_at: new Date().toISOString(),
       },
     ];
-    this.sending = true;
-    this.sendingChatId = chat.id;
+    this.sendingChatIds.add(chat.id);
     this.errorMessage = '';
 
     this.api
       .sendMessage(chat.id, content)
       .pipe(
         finalize(() => {
-          this.sending = false;
-          this.sendingChatId = null;
+          this.sendingChatIds.delete(chat.id);
+          this.changeDetector.markForCheck();
         }),
       )
       .subscribe({
@@ -205,6 +215,10 @@ export class AppComponent implements OnInit {
           }
         },
       });
+  }
+
+  isSending(chatId: number | null | undefined): boolean {
+    return chatId != null && this.sendingChatIds.has(chatId);
   }
 
   private loadChats(): void {
