@@ -4,7 +4,7 @@ import { finalize } from 'rxjs';
 
 import { ChatApiService } from './chat-api.service';
 import { ChatPanelComponent } from './chat-panel.component';
-import { Chat, Message } from './models';
+import { Chat, Message, Provider, SendMessageRequest } from './models';
 import { SidebarComponent } from './sidebar.component';
 
 @Component({
@@ -17,6 +17,7 @@ import { SidebarComponent } from './sidebar.component';
         [chats]="chats"
         [selectedId]="activeChat?.id ?? null"
         [ollamaAvailable]="ollamaAvailable"
+        [ragAvailable]="ragAvailable"
         [creating]="creatingChat"
         [open]="sidebarOpen"
         (create)="createChat()"
@@ -34,6 +35,10 @@ import { SidebarComponent } from './sidebar.component';
         [busy]="isSending(activeChat?.id)"
         [loadingHistory]="loadingMessages"
         [errorMessage]="errorMessage"
+        [provider]="provider"
+        [ragEnabled]="ragEnabled"
+        (providerChange)="provider = $event"
+        (ragEnabledChange)="ragEnabled = $event"
         (send)="sendMessage($event)"
         (newChat)="createChat()"
         (menu)="sidebarOpen = true"
@@ -65,6 +70,9 @@ export class AppComponent implements OnInit {
   activeChat: Chat | null = null;
   messages: Message[] = [];
   ollamaAvailable = false;
+  ragAvailable = false;
+  provider: Provider = 'ollama';
+  ragEnabled = false;
   creatingChat = false;
   loadingMessages = false;
   sidebarOpen = false;
@@ -75,8 +83,14 @@ export class AppComponent implements OnInit {
 
   ngOnInit(): void {
     this.api.getHealth().subscribe({
-      next: (health) => (this.ollamaAvailable = health.ollama === 'available'),
-      error: () => (this.ollamaAvailable = false),
+      next: (health) => {
+        this.ollamaAvailable = health.ollama === 'available';
+        this.ragAvailable = health.rag === 'available';
+      },
+      error: () => {
+        this.ollamaAvailable = false;
+        this.ragAvailable = false;
+      },
     });
     this.loadChats();
   }
@@ -158,7 +172,7 @@ export class AppComponent implements OnInit {
     });
   }
 
-  sendMessage(content: string): void {
+  sendMessage(request: SendMessageRequest): void {
     const chat = this.activeChat;
     if (!chat || this.sendingChatIds.has(chat.id)) {
       return;
@@ -171,7 +185,7 @@ export class AppComponent implements OnInit {
         id: temporaryId,
         chat_id: chat.id,
         role: 'user',
-        content,
+        content: request.content,
         created_at: new Date().toISOString(),
       },
     ];
@@ -179,7 +193,7 @@ export class AppComponent implements OnInit {
     this.errorMessage = '';
 
     this.api
-      .sendMessage(chat.id, content)
+      .sendMessage(chat.id, request.content, request.provider, request.rag_enabled)
       .pipe(
         finalize(() => {
           this.sendingChatIds.delete(chat.id);
@@ -203,11 +217,18 @@ export class AppComponent implements OnInit {
             ].sort((left, right) => left.id - right.id);
             this.activeChat = exchange.chat;
           }
-          this.ollamaAvailable = true;
+          if (request.provider === 'ollama' && !request.rag_enabled) {
+            this.ollamaAvailable = true;
+          } else {
+            this.ragAvailable = true;
+          }
         },
         error: (error: HttpErrorResponse) => {
-          if (error.status === 0 || error.status === 503) {
+          if ((error.status === 0 || error.status === 503) && request.provider === 'ollama' && !request.rag_enabled) {
             this.ollamaAvailable = false;
+          }
+          if ((error.status === 0 || error.status === 503 || error.status === 504) && (request.rag_enabled || request.provider === 'deepseek')) {
+            this.ragAvailable = false;
           }
           if (this.activeChat?.id === chat.id) {
             this.errorMessage = this.readError(error);

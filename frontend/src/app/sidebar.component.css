@@ -84,6 +84,10 @@
   background: rgba(255, 255, 255, 0.055);
 }
 
+.model-status--rag {
+  margin-top: -12px;
+}
+
 .model-status span:last-child {
   display: flex;
   flex-direction: column;

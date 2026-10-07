@@ -170,6 +170,113 @@
   color: #718099;
 }
 
+.answer-status {
+  display: inline-flex;
+  margin-top: 12px;
+  padding: 5px 8px;
+  color: #85520d;
+  border: 1px solid #e8c887;
+  border-radius: 7px;
+  background: #fff8e8;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.answer-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.answer-summary span {
+  padding: 4px 7px;
+  color: #637189;
+  border: 1px solid #d7dee9;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.66);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+}
+
+.message-details {
+  max-width: 720px;
+  margin-top: 9px;
+  color: #5f6e85;
+  border-top: 1px solid #dde3ec;
+  font-size: 10px;
+}
+
+.message-details summary {
+  width: max-content;
+  padding: 8px 2px 3px;
+  color: #46608a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.metric-grid {
+  display: grid;
+  max-height: 300px;
+  margin: 7px 0 0;
+  grid-template-columns: minmax(150px, 1fr) minmax(80px, auto);
+  overflow: auto;
+  border: 1px solid #dbe1ea;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.metric-grid dt,
+.metric-grid dd {
+  min-width: 0;
+  margin: 0;
+  padding: 6px 9px;
+  border-bottom: 1px solid #e6eaf0;
+  overflow-wrap: anywhere;
+}
+
+.metric-grid dt {
+  color: #77839a;
+}
+
+.metric-grid dd {
+  color: #263b5d;
+  font-family: 'JetBrains Mono', monospace;
+  text-align: right;
+}
+
+.evidence-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 7px;
+}
+
+.evidence-item,
+.evidence-list blockquote {
+  margin: 0;
+  padding: 9px 11px;
+  color: #42536d;
+  border: 1px solid #dbe1ea;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.72);
+  overflow-wrap: anywhere;
+}
+
+.evidence-item {
+  display: grid;
+  gap: 4px;
+}
+
+.evidence-item code {
+  color: #31568e;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+}
+
+.evidence-item small {
+  color: #8490a3;
+}
+
 .thinking-row span {
   width: 6px;
   height: 6px;
@@ -282,6 +389,51 @@
 .composer-area {
   padding: 12px clamp(20px, 4vw, 54px) 17px;
   background: linear-gradient(to bottom, rgba(243, 246, 250, 0), #f3f6fa 18%);
+}
+
+.turn-controls {
+  display: flex;
+  width: min(100%, 840px);
+  margin: 0 auto 7px;
+  align-items: center;
+  gap: 7px;
+}
+
+.turn-controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #758198;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.turn-controls select,
+.rag-toggle {
+  min-height: 29px;
+  color: #344965;
+  border: 1px solid #ccd5e3;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.turn-controls select {
+  padding: 0 25px 0 9px;
+}
+
+.rag-toggle {
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.rag-toggle--active {
+  color: #2047b7;
+  border-color: #9eb3ef;
+  background: #eaf0ff;
 }
 
 .composer,
@@ -418,6 +570,18 @@
   .composer-area {
     padding-right: 12px;
     padding-left: 12px;
+  }
+
+  .turn-controls label > span {
+    display: none;
+  }
+
+  .turn-controls select {
+    max-width: 180px;
+  }
+
+  .metric-grid {
+    grid-template-columns: minmax(120px, 1fr) minmax(70px, auto);
   }
 
   .composer-hint {

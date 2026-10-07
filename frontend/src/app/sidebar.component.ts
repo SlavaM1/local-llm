@@ -27,6 +27,13 @@ import { Chat } from './models';
           <small>{{ ollamaAvailable ? 'работает локально' : 'Ollama недоступна' }}</small>
         </span>
       </div>
+      <div class="model-status model-status--rag" [class.model-status--offline]="!ragAvailable">
+        <span class="status-dot"></span>
+        <span>
+          <strong>RAG</strong>
+          <small>{{ ragAvailable ? 'сервис доступен' : 'сервис недоступен' }}</small>
+        </span>
+      </div>
 
       <button class="new-chat" type="button" (click)="create.emit()" [disabled]="creating">
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -69,7 +76,7 @@ import { Chat } from './models';
           <path d="M12 3 5 6v5c0 4.8 2.8 8.1 7 10 4.2-1.9 7-5.2 7-10V6l-7-3Z" />
           <path d="m9 12 2 2 4-4" />
         </svg>
-        Данные остаются на этом устройстве
+        Local-режим не отправляет чат в облако. DeepSeek передаёт контекст облачной модели.
       </p>
     </aside>
   `,
@@ -79,6 +86,7 @@ export class SidebarComponent {
   @Input({ required: true }) chats: Chat[] = [];
   @Input() selectedId: number | null = null;
   @Input() ollamaAvailable = false;
+  @Input() ragAvailable = false;
   @Input() creating = false;
   @Input() open = false;
 

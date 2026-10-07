@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { Chat, Health, Message, MessageExchange } from './models';
+import { Chat, Health, Message, MessageExchange, Provider } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ChatApiService {
@@ -29,9 +29,16 @@ export class ChatApiService {
     return this.http.get<Message[]>(`${this.baseUrl}/chats/${chatId}/messages`);
   }
 
-  sendMessage(chatId: number, content: string): Observable<MessageExchange> {
+  sendMessage(
+    chatId: number,
+    content: string,
+    provider: Provider,
+    ragEnabled: boolean,
+  ): Observable<MessageExchange> {
     return this.http.post<MessageExchange>(`${this.baseUrl}/chats/${chatId}/messages`, {
       content,
+      provider,
+      rag_enabled: ragEnabled,
     });
   }
 }

@@ -24,6 +24,8 @@ class ChatRead(BaseModel):
 
 class MessageCreate(BaseModel):
     content: str = Field(max_length=20_000)
+    provider: Literal["ollama", "deepseek"] = "ollama"
+    rag_enabled: bool = False
 
     @field_validator("content")
     @classmethod
@@ -42,6 +44,14 @@ class MessageRead(BaseModel):
     role: Literal["user", "assistant"]
     content: str
     created_at: datetime
+    request_id: str | None = None
+    provider: Literal["ollama", "deepseek"] | None = None
+    model: str | None = None
+    rag_enabled: bool | None = None
+    status: str | None = None
+    metrics: dict[str, object] | None = None
+    sources: list[object] = Field(default_factory=list)
+    quotes: list[object] = Field(default_factory=list)
 
     @field_validator("created_at")
     @classmethod
@@ -57,5 +67,8 @@ class MessageExchange(BaseModel):
 
 class HealthRead(BaseModel):
     status: str
+    backend: Literal["ok", "unavailable"]
     ollama: str
+    rag: str
+    deepseek_configured: bool
     model: str

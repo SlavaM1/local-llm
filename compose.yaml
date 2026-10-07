@@ -24,14 +24,19 @@ services:
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: qwen3:8b
       OLLAMA_TIMEOUT_SECONDS: "120"
+      RAG_SERVICE_URL: http://host.docker.internal:8010
+      RAG_TIMEOUT_SECONDS: "180"
+      HEALTH_TIMEOUT_SECONDS: "3"
       CORS_ORIGINS: http://localhost:3000
     ports:
-      - "127.0.0.1:8080:8000"
+      - "127.0.0.1:${LOCAL_LLM_BACKEND_PORT:-8000}:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - chat_data:/app/data
     depends_on:
       ollama:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test:
         [

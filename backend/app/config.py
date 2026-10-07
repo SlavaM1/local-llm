@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     ollama_url: str = "http://ollama:11434"
     ollama_model: str = "qwen3:8b"
     ollama_timeout_seconds: float = 120.0
+    rag_service_url: str = "http://host.docker.internal:8010"
+    rag_timeout_seconds: float = 180.0
+    health_timeout_seconds: float = 3.0
     cors_origins: str = "http://localhost:3000"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
