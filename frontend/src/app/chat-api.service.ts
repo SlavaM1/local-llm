@@ -53,12 +53,12 @@ export class ChatApiService {
   sendMessage(chatId: number, request: SendMessageRequest): Observable<MessageExchange> {
     return this.http
       .post<MessageExchange>(`${this.baseUrl}/chats/${chatId}/messages`, request)
-      .pipe(timeout({ first: 135_000 }));
+      .pipe(timeout({ first: 610_000 }));
   }
 
   compareMessages(chatId: number, request: CompareRequest): Observable<CompareExchange> {
     return this.http
       .post<CompareExchange>(`${this.baseUrl}/chats/${chatId}/compare`, request)
-      .pipe(timeout({ first: 260_000 }));
+      .pipe(timeout({ first: 1_215_000 }));
   }
 }

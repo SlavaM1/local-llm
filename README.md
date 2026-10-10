@@ -192,8 +192,8 @@ metrics и доступные snapshots `nvidia-smi`/`docker stats`; runtime-ф�
 ```
 
 Backend принимает только `baseline`/`optimized` и никогда не доверяет имени
-модели от frontend. Конечный Ollama timeout равен 120 s; frontend использует
-135 s для обычного запроса и 260 s для последовательного compare. `finalize`
+модели от frontend. Конечный Ollama timeout равен 600 s; frontend использует
+610 s для обычного запроса и 1215 s для последовательного compare. `finalize`
 сбрасывает loading state при timeout, Ollama error, network error и parse error.
 
 ## Tests

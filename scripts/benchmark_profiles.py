@@ -40,7 +40,7 @@ def api_request(base_url: str, method: str, path: str, payload: dict | None = No
         headers={"Content-Type": "application/json"},
     )
     try:
-        with urlopen(request, timeout=270) as response:
+        with urlopen(request, timeout=1220) as response:
             return json.load(response)
     except HTTPError as exc:
         detail = exc.read().decode(errors="replace")

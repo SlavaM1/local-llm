@@ -74,7 +74,7 @@ const EMPTY_METRICS: MessageMetrics = {
     </details>
   `,
   styles: `
-    :host { display: block; margin-top: 11px; font-family: 'JetBrains Mono', monospace; }
+    :host { display: block; min-width: 0; margin-top: 11px; font-family: 'JetBrains Mono', monospace; }
     .metric-summary { display: flex; flex-wrap: wrap; gap: 4px 7px; color: #718099; font-size: 9px; line-height: 1.5; }
     .metric-summary > span:first-child { color: #315ee7; font-weight: 700; }
     .metric-summary > .profile-optimized { color: #c36a18; }
@@ -83,8 +83,10 @@ const EMPTY_METRICS: MessageMetrics = {
     summary:hover { color: #315ee7; }
     dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; max-width: 650px; margin: 8px 0 0; border-top: 1px solid #dce3ed; border-left: 1px solid #dce3ed; }
     dl div { display: grid; grid-template-columns: minmax(115px, 1fr) minmax(60px, auto); gap: 10px; padding: 6px 8px; border-right: 1px solid #dce3ed; border-bottom: 1px solid #dce3ed; background: rgba(255, 255, 255, 0.55); }
-    dt { overflow-wrap: anywhere; }
-    dd { margin: 0; color: #263b5b; text-align: right; overflow-wrap: anywhere; }
+    dt { min-width: 0; overflow-wrap: anywhere; }
+    dd { min-width: 0; margin: 0; color: #263b5b; text-align: right; overflow-wrap: anywhere; }
+    :host-context(.comparison-response) dl { grid-template-columns: minmax(0, 1fr); }
+    :host-context(.comparison-response) dl div { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     @media (max-width: 620px) { dl { grid-template-columns: 1fr; } }
   `,
 })
