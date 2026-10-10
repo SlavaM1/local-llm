@@ -4,6 +4,7 @@ from typing import Any
 
 from app.config.model_profiles import ResolvedProfile
 from app.models import MessageMetric
+from app.services.history import ContextBudget
 
 PROVIDER_FIELDS = (
     "total_duration",
@@ -64,6 +65,11 @@ def build_metric(
     request_started_counter: float,
     raw_response: dict[str, Any] | None,
     success: bool,
+    context_budget: ContextBudget,
+    authenticated_user_id: int,
+    service_rate_limit: int,
+    service_max_context: int,
+    profile_context: int,
     error_type: str | None = None,
 ) -> MessageMetric:
     raw = raw_response or {}
@@ -86,6 +92,7 @@ def build_metric(
     prompt = prompt_statistics(messages, profile)
     return MessageMetric(
         chat_id=chat_id,
+        authenticated_user_id=authenticated_user_id,
         profile=profile.name,
         model=profile.model,
         settings_json=profile.settings_dict(),
@@ -93,6 +100,10 @@ def build_metric(
         temperature=profile.temperature,
         max_tokens=profile.max_tokens,
         context_window=profile.context_window,
+        service_rate_limit=service_rate_limit,
+        service_max_context=service_max_context,
+        profile_context=profile_context,
+        effective_context=profile.context_window,
         thinking=profile.thinking,
         request_started_at=request_started_at,
         total_latency_ms=(perf_counter() - request_started_counter) * 1000,
@@ -107,5 +118,8 @@ def build_metric(
         generation_tokens_per_second=_tokens_per_second(output_tokens, generation_duration),
         success=success,
         error_type=error_type,
+        history_messages_available=context_budget.history_messages_available,
+        history_messages_sent=context_budget.history_messages_sent,
+        history_messages_dropped=context_budget.history_messages_dropped,
         **prompt,
     )

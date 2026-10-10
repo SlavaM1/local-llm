@@ -1,4 +1,96 @@
-# Local LLM
+# Day 30 - Private Local LLM Service
+
+Локальный сервис предназначен для `localhost` и доверенной LAN, а не для
+публичного Интернета. Единственная опубликованная точка входа Docker - frontend
+gateway на `http://SERVER_IP:3000`:
+
+```text
+LAN client -> :3000 Nginx/Angular -> /api -> FastAPI -> SQLite + Ollama -> qwen3:8b
+```
+
+Backend и Ollama доступны только во внутренней Docker network по именам
+`backend` и `ollama`; host ports для `8000` и `11434` не публикуются. Frontend
+использует same-origin `/api`, поэтому browser не обращается к `localhost:8000`
+или к Ollama напрямую.
+
+## Authentication
+
+Первый запуск идемпотентно создаёт единственный admin account из environment
+`INITIAL_ADMIN_USERNAME`/`INITIAL_ADMIN_PASSWORD`. Учебные defaults:
+
+```text
+username: admin
+password: admin1
+```
+
+Пароль сохраняется только как bcrypt hash. При следующем запуске account и его
+password не перезаписываются. Замените defaults через environment перед реальным
+deployment. Session хранится server-side в SQLite; browser получает только
+случайный `HttpOnly`, `SameSite=Lax` cookie с TTL 24 часа. Для HTTPS установите
+`SESSION_COOKIE_SECURE=true`.
+
+До `/api/auth/login` UI показывает только login screen. Все chats, messages,
+profiles и settings требуют session на backend. `POST /api/auth/logout`
+инвалидирует session. Лёгкий `GET /api/health` публичен и возвращает только
+`{"status":"ok"}` или `{"status":"degraded"}`.
+
+## Service Settings
+
+После login откройте `Настройки` в sidebar. Admin может сохранить в SQLite без
+рестарта:
+
+- `requests_per_minute`: 1-1000, default `20`, sliding window per authenticated user;
+- `max_context_tokens`: 1024-8192, default `4096`.
+
+Лимит применяется к generation до сохранения user message; при превышении API
+возвращает `429`, `Retry-After` и frontend выходит из loading state. Login имеет
+отдельный лимит 5 попыток/minute/IP. Для любого generation backend передаёт
+Ollama `options.num_ctx`. `effective_context = min(profile_context,
+service_max_context)`; для Baseline profile context рассматривается как 8192.
+Полная история остаётся в SQLite, но prompt получает только последний user turn
+и самые свежие complete turns, консервативно помещающиеся в effective context.
+Metrics сохраняют available/sent/dropped history counts, service limit,
+profile/service/effective context и authenticated user ID.
+
+## Start And LAN
+
+```bash
+docker compose up -d --build
+docker compose ps
+```
+
+Published host port: `0.0.0.0:3000->80/tcp`. On Windows run `ipconfig`, locate
+the IPv4 address of the LAN adapter (for example `192.168.1.50`), then open
+`http://192.168.1.50:3000` from another LAN device. Allow inbound TCP/3000 in
+Windows Firewall if necessary.
+
+Do **not** publish port 3000 directly to the Internet with default credentials.
+A real VPS deployment needs HTTPS, a strong replaced password, firewall/VPN and
+ideally an additional access layer. Day 30 deliberately does not configure
+public HTTPS, domains, or Let's Encrypt.
+
+## HTTP API
+
+The API is usable with a cookie jar, including through the frontend gateway:
+
+```bash
+curl -c cookies.txt -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"admin1"}' \
+  http://localhost:3000/api/auth/login
+curl -b cookies.txt http://localhost:3000/api/chats
+curl -b cookies.txt -X POST http://localhost:3000/api/auth/logout
+```
+
+No registration or public create-user endpoint exists. `scripts/test_private_service.py`
+performs login, sequential or small-concurrency generation checks and logout;
+provide password outside Git, for example:
+
+```bash
+PRIVATE_SERVICE_PASSWORD=admin1 python3 scripts/test_private_service.py --requests 5
+PRIVATE_SERVICE_PASSWORD=admin1 python3 scripts/test_private_service.py --requests 3 --concurrency 3
+```
+
+## Day 29 Functionality
 
 Локальный технический AI-ассистент для Java, backend, Docker, SQL, архитектуры,
 RAG/LLM, объяснения технических вопросов и работы с кодом. Angular-интерфейс,

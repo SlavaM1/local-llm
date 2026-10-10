@@ -3,9 +3,9 @@ from time import perf_counter
 
 from sqlalchemy import create_engine, inspect, text
 
-from app.config.model_profiles import resolve_profile
+from app.config.model_profiles import apply_service_context, resolve_profile
 from app.database import initialize_database
-from app.services.history import budget_optimized_history
+from app.services.history import budget_history, budget_optimized_history
 from app.services.metrics import build_metric
 
 
@@ -28,6 +28,18 @@ def test_metric_normalization_and_missing_values():
             "eval_duration": 500_000_000,
         },
         success=True,
+        context_budget=budget_history(
+            [
+                {"role": "user", "content": "old"},
+                {"role": "assistant", "content": "answer"},
+                {"role": "user", "content": "new"},
+            ],
+            resolve_profile("optimized"),
+        ),
+        authenticated_user_id=1,
+        service_rate_limit=20,
+        service_max_context=4096,
+        profile_context=4096,
     )
     assert metric.ollama_total_duration_ms == 2.5
     assert metric.load_duration_ms is None
@@ -52,7 +64,8 @@ def test_optimized_budget_keeps_latest_complete_turns_and_latest_user():
     ]
     trimmed = budget_optimized_history(messages, profile)
     assert trimmed == messages[-3:]
-    assert budget_optimized_history(messages, resolve_profile("baseline")) == messages
+    baseline, _ = apply_service_context(resolve_profile("baseline"), 4096)
+    assert budget_optimized_history(messages, baseline) == messages
 
 
 def test_old_sqlite_database_migration(tmp_path):

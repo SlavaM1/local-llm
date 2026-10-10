@@ -63,6 +63,19 @@
   font-size: 12px;
 }
 
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 4px 0;
+  color: #9fb0d1;
+  font-size: 11px;
+}
+
+.account-row span { margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-row button { padding: 0; color: #cbd7f2; border: 0; background: transparent; font: inherit; cursor: pointer; }
+.account-row button:hover { color: #fff; }
+
 .close-button {
   display: none;
   margin-left: auto;

@@ -110,6 +110,13 @@ export interface CompareRequest {
 
 export interface Health {
   status: string;
-  ollama: 'available' | 'unavailable';
-  model: string;
+}
+
+export interface AuthUser {
+  username: string;
+}
+
+export interface ServiceSettings {
+  requests_per_minute: number;
+  max_context_tokens: number;
 }

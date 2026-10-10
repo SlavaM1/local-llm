@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from app.config import Settings
-from app.config.model_profiles import MODEL_PROFILES, resolve_profile
+from app.config.model_profiles import MODEL_PROFILES, apply_service_context, resolve_profile
 from app.services.ollama import OllamaError, OllamaService
 
 
@@ -45,10 +45,10 @@ def call_service(monkeypatch, profile, outcome):
     return result, captured
 
 
-def test_baseline_payload_is_day27_exact(monkeypatch):
+def test_baseline_payload_applies_effective_service_context(monkeypatch):
     result, captured = call_service(
         monkeypatch,
-        resolve_profile("baseline"),
+        apply_service_context(resolve_profile("baseline"), 4096)[0],
         response({"message": {"content": " ok "}}),
     )
     assert result.content == "ok"
@@ -57,6 +57,7 @@ def test_baseline_payload_is_day27_exact(monkeypatch):
         "messages": [{"role": "user", "content": "hi"}],
         "stream": False,
         "think": False,
+        "options": {"num_ctx": 4096},
     }
 
 

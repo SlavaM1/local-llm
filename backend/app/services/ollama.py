@@ -37,19 +37,20 @@ class OllamaService:
             "stream": False,
             "think": profile.thinking,
         }
+        options: dict[str, Any] = {"num_ctx": profile.context_window}
         if profile.name == "optimized":
             request_messages = [
                 {"role": "system", "content": profile.system_prompt or ""},
                 *messages,
             ]
             payload["messages"] = request_messages
-            payload["options"] = {
+            options.update({
                 "temperature": profile.temperature,
                 "num_predict": profile.max_tokens,
-                "num_ctx": profile.context_window,
                 "top_p": profile.top_p,
                 "repeat_penalty": profile.repeat_penalty,
-            }
+            })
+        payload["options"] = options
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:

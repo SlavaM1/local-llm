@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Literal
 
 
@@ -101,6 +101,12 @@ def resolve_profile(
         repeat_penalty=profile.repeat_penalty,
         thinking=profile.thinking if thinking is None else thinking,
     )
+
+
+def apply_service_context(profile: ResolvedProfile, service_max_context: int) -> tuple[ResolvedProfile, int]:
+    """Return the context that will be sent to Ollama and the requested profile context."""
+    profile_context = profile.context_window or 8192
+    return replace(profile, context_window=min(profile_context, service_max_context)), profile_context
 
 
 def profile_metadata() -> dict:

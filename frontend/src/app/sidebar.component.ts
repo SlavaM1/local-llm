@@ -20,6 +20,12 @@ import { Chat } from './models';
         </button>
       </div>
 
+      <div class="account-row">
+        <span>{{ username }}</span>
+        <button type="button" (click)="settings.emit()">Настройки</button>
+        <button type="button" (click)="logout.emit()">Выйти</button>
+      </div>
+
       <div class="model-status" [class.model-status--offline]="!ollamaAvailable">
         <span class="status-dot"></span>
         <span>
@@ -81,11 +87,14 @@ export class SidebarComponent {
   @Input() ollamaAvailable = false;
   @Input() creating = false;
   @Input() open = false;
+  @Input() username = '';
 
   @Output() readonly create = new EventEmitter<void>();
   @Output() readonly select = new EventEmitter<Chat>();
   @Output() readonly delete = new EventEmitter<Chat>();
   @Output() readonly close = new EventEmitter<void>();
+  @Output() readonly settings = new EventEmitter<void>();
+  @Output() readonly logout = new EventEmitter<void>();
 
   confirmDelete(chat: Chat): void {
     if (window.confirm('Удалить этот диалог?')) {

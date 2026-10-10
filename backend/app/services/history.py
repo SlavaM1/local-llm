@@ -4,14 +4,31 @@ HISTORY_OVERHEAD_TOKENS = 256
 CONSERVATIVE_CHARS_PER_TOKEN = 2
 
 
-def budget_optimized_history(
-    messages: list[dict[str, str]], profile: ResolvedProfile
-) -> list[dict[str, str]]:
-    """Trim oldest complete turns using a conservative char budget, not token counts."""
-    if profile.name != "optimized" or not messages:
-        return list(messages)
+class ContextBudget:
+    def __init__(self, available_messages: list[dict[str, str]], messages: list[dict[str, str]]) -> None:
+        self.available_messages = available_messages
+        self.messages = messages
 
-    max_tokens = profile.max_tokens or 0
+    @property
+    def history_messages_available(self) -> int:
+        return max(len(self.available_messages) - 1, 0)
+
+    @property
+    def history_messages_sent(self) -> int:
+        return max(len(self.messages) - 1, 0)
+
+    @property
+    def history_messages_dropped(self) -> int:
+        return max(self.history_messages_available - self.history_messages_sent, 0)
+
+
+def budget_history(messages: list[dict[str, str]], profile: ResolvedProfile) -> ContextBudget:
+    """Keep the latest user message and recent complete turns within a conservative budget."""
+    if not messages:
+        return ContextBudget([], [])
+
+
+    max_tokens = profile.max_tokens or 1024
     context_window = profile.context_window or 0
     system_chars = len(profile.system_prompt or "")
     available_input_tokens = max(
@@ -41,4 +58,11 @@ def budget_optimized_history(
         else:
             break
     kept.reverse()
-    return [message for turn in kept for message in turn]
+    return ContextBudget(messages, [message for turn in kept for message in turn])
+
+
+def budget_optimized_history(
+    messages: list[dict[str, str]], profile: ResolvedProfile
+) -> list[dict[str, str]]:
+    """Compatibility wrapper retained for Day 29 callers and tests."""
+    return budget_history(messages, profile).messages

@@ -4,8 +4,6 @@ services:
   ollama:
     image: ollama/ollama:0.35.1
     container_name: ollama
-    ports:
-      - "127.0.0.1:11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
@@ -37,8 +35,9 @@ services:
       OLLAMA_URL: http://ollama:11434
       OLLAMA_TIMEOUT_SECONDS: "600"
       CORS_ORIGINS: http://localhost:3000
-    ports:
-      - "127.0.0.1:8080:8000"
+      INITIAL_ADMIN_USERNAME: ${INITIAL_ADMIN_USERNAME:-admin}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-admin1}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
     volumes:
       - chat_data:/app/data
     depends_on:
@@ -62,7 +61,7 @@ services:
     build:
       context: ./frontend
     ports:
-      - "127.0.0.1:3000:80"
+      - "3000:80"
     depends_on:
       backend:
         condition: service_healthy

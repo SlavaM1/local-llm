@@ -12,6 +12,7 @@ from app.api.chats import get_ollama_service
 from app.database import Base, get_db, initialize_database
 from app.main import app
 from app.services.ollama import OllamaResult
+from app.services.rate_limit import generation_limiter, login_limiter
 
 
 class FakeOllama:
@@ -55,8 +56,12 @@ def api():
     app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[get_ollama_service] = lambda: fake
     with TestClient(app) as client:
+        login = client.post("/api/auth/login", json={"username": "admin", "password": "admin1"})
+        assert login.status_code == 200
         yield client, fake, TestingSession
     app.dependency_overrides.clear()
+    generation_limiter.clear()
+    login_limiter.clear()
     Base.metadata.drop_all(engine)
 
 

@@ -6,11 +6,13 @@ import {
   Chat,
   CompareExchange,
   CompareRequest,
+  AuthUser,
   Health,
   Message,
   MessageExchange,
   ModelProfilesResponse,
   SendMessageRequest,
+  ServiceSettings,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -20,6 +22,26 @@ export class ChatApiService {
 
   getHealth(): Observable<Health> {
     return this.http.get<Health>(`${this.baseUrl}/health`);
+  }
+
+  login(username: string, password: string): Observable<AuthUser> {
+    return this.http.post<AuthUser>(`${this.baseUrl}/auth/login`, { username, password });
+  }
+
+  getMe(): Observable<AuthUser> {
+    return this.http.get<AuthUser>(`${this.baseUrl}/auth/me`);
+  }
+
+  logout(): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/auth/logout`, {});
+  }
+
+  getServiceSettings(): Observable<ServiceSettings> {
+    return this.http.get<ServiceSettings>(`${this.baseUrl}/settings`);
+  }
+
+  updateServiceSettings(settings: ServiceSettings): Observable<ServiceSettings> {
+    return this.http.put<ServiceSettings>(`${this.baseUrl}/settings`, settings);
   }
 
   getChats(): Observable<Chat[]> {

@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { TimeoutError, finalize } from 'rxjs';
 
 import { ChatApiService } from './chat-api.service';
@@ -11,14 +12,29 @@ import {
   ModelProfile,
   ModelSettings,
   ProfileName,
+  AuthUser,
+  ServiceSettings,
 } from './models';
 import { SidebarComponent } from './sidebar.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [SidebarComponent, ChatPanelComponent],
+  imports: [FormsModule, SidebarComponent, ChatPanelComponent],
   template: `
+    @if (!user) {
+      <section class="auth-shell">
+        <form class="auth-card" (ngSubmit)="login()">
+          <div class="auth-mark">LL</div>
+          <h1>Local LLM</h1>
+          <p>Для работы авторизируйтесь</p>
+          @if (authError) { <div class="auth-error" role="alert">{{ authError }}</div> }
+          <label>Логин<input name="username" [(ngModel)]="loginUsername" autocomplete="username" [disabled]="loginLoading" /></label>
+          <label>Пароль<input name="password" [(ngModel)]="loginPassword" type="password" autocomplete="current-password" [disabled]="loginLoading" /></label>
+          <button type="submit" [disabled]="loginLoading || !loginUsername || !loginPassword">{{ loginLoading ? 'Входим...' : 'Войти' }}</button>
+        </form>
+      </section>
+    } @else {
     <div class="app-shell">
       <app-sidebar
         [chats]="chats"
@@ -26,10 +42,13 @@ import { SidebarComponent } from './sidebar.component';
         [ollamaAvailable]="ollamaAvailable"
         [creating]="creatingChat"
         [open]="sidebarOpen"
+        [username]="user.username"
         (create)="createChat()"
         (select)="selectChat($event)"
         (delete)="deleteChat($event)"
         (close)="sidebarOpen = false"
+        (settings)="openSettings()"
+        (logout)="logout()"
       />
       @if (sidebarOpen) {
         <button class="mobile-backdrop" aria-label="Закрыть меню" (click)="sidebarOpen = false"></button>
@@ -52,11 +71,39 @@ import { SidebarComponent } from './sidebar.component';
         (menu)="sidebarOpen = true"
       />
     </div>
+    @if (settingsOpen) {
+      <div class="settings-backdrop" (click)="settingsOpen = false">
+        <form class="settings-dialog" (click)="$event.stopPropagation()" (ngSubmit)="saveServiceSettings()">
+          <button class="settings-close" type="button" aria-label="Закрыть" (click)="settingsOpen = false">×</button>
+          <p class="settings-eyebrow">Приватный сервис</p>
+          <h2>Настройки сервиса</h2>
+          <label>Rate limit<input name="rateLimit" type="number" min="1" max="1000" step="1" [(ngModel)]="serviceSettings.requests_per_minute" /> <small>запросов / минуту</small></label>
+          <label>Max context<input name="maxContext" type="number" min="1024" max="8192" step="1" [(ngModel)]="serviceSettings.max_context_tokens" /> <small>tokens</small></label>
+          <p class="settings-hint">Рекомендуемый context для RTX 3070 8 GB: 4096</p>
+          @if (settingsError) { <p class="auth-error">{{ settingsError }}</p> }
+          <button type="submit" [disabled]="settingsSaving">{{ settingsSaving ? 'Сохраняем...' : 'Сохранить' }}</button>
+        </form>
+      </div>
+    }
+    }
   `,
   styles: `
     :host { display: block; height: 100%; }
     .app-shell { display: flex; height: 100%; overflow: hidden; }
     .mobile-backdrop { display: none; }
+    .auth-shell { display: grid; min-height: 100%; place-items: center; padding: 24px; background: radial-gradient(circle at 10% 10%, #dbe7ff, transparent 34%), #f3f6fa; }
+    .auth-card { width: min(100%, 380px); padding: 34px; border: 1px solid #dce3ed; border-radius: 18px; background: #fff; box-shadow: 0 22px 56px rgba(25, 49, 90, .13); }
+    .auth-mark { display: grid; width: 42px; height: 42px; place-items: center; color: #fff; border-radius: 12px; background: #315ee7; font: 700 12px 'JetBrains Mono', monospace; }
+    .auth-card h1 { margin: 18px 0 5px; font-size: 26px; } .auth-card p { margin: 0 0 22px; color: #64738c; font-size: 14px; }
+    .auth-card label, .settings-dialog label { display: grid; gap: 6px; margin-top: 15px; color: #465a78; font-size: 12px; font-weight: 700; }
+    .auth-card input, .settings-dialog input { width: 100%; padding: 11px 12px; color: #172641; border: 1px solid #cbd7e8; border-radius: 9px; background: #fff; font: inherit; }
+    .auth-card button, .settings-dialog > button:last-child { width: 100%; margin-top: 22px; padding: 12px; color: #fff; border: 0; border-radius: 9px; background: #315ee7; font: 700 13px inherit; cursor: pointer; }
+    button:disabled { cursor: wait; opacity: .65; } .auth-error { margin: 14px 0 0 !important; color: #a63833 !important; }
+    .settings-backdrop { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(14, 31, 58, .48); }
+    .settings-dialog { position: relative; width: min(100%, 430px); padding: 28px; border-radius: 16px; background: #fff; box-shadow: 0 22px 56px rgba(0, 0, 0, .25); }
+    .settings-dialog h2 { margin: 3px 0 6px; font-size: 21px; } .settings-eyebrow { margin: 0; color: #315ee7; font: 700 10px 'JetBrains Mono', monospace; text-transform: uppercase; }
+    .settings-dialog small { color: #718099; font-weight: 500; } .settings-hint { margin: 18px 0 0; color: #64738c; font-size: 12px; }
+    .settings-close { position: absolute; top: 12px; right: 14px; padding: 3px 8px; color: #64738c; border: 0; background: none; font-size: 24px; cursor: pointer; }
     @media (max-width: 760px) {
       .mobile-backdrop {
         position: fixed;
@@ -73,6 +120,16 @@ import { SidebarComponent } from './sidebar.component';
 export class AppComponent implements OnInit {
   private readonly api = inject(ChatApiService);
   private readonly changeDetector = inject(ChangeDetectorRef);
+
+  user: AuthUser | null = null;
+  loginUsername = 'admin';
+  loginPassword = '';
+  loginLoading = false;
+  authError = '';
+  settingsOpen = false;
+  settingsSaving = false;
+  settingsError = '';
+  serviceSettings: ServiceSettings = { requests_per_minute: 20, max_context_tokens: 4096 };
 
   chats: Chat[] = [];
   activeChat: Chat | null = null;
@@ -117,8 +174,73 @@ export class AppComponent implements OnInit {
   private readonly sendingChatIds = new Set<number>();
 
   ngOnInit(): void {
+    this.api.getMe().subscribe({
+      next: (user) => this.completeAuthentication(user),
+      error: () => undefined,
+    });
+  }
+
+  login(): void {
+    if (this.loginLoading || !this.loginUsername || !this.loginPassword) {
+      return;
+    }
+    this.loginLoading = true;
+    this.authError = '';
+    this.api.login(this.loginUsername, this.loginPassword).pipe(
+      finalize(() => {
+        this.loginLoading = false;
+        this.changeDetector.markForCheck();
+      }),
+    ).subscribe({
+      next: (user) => {
+        this.loginPassword = '';
+        this.completeAuthentication(user);
+      },
+      error: (error: unknown) => {
+        this.authError = error instanceof HttpErrorResponse && error.status === 429
+          ? 'Слишком много попыток. Попробуйте позже.'
+          : 'Неверный логин или пароль';
+      },
+    });
+  }
+
+  logout(): void {
+    this.api.logout().subscribe({ complete: () => this.endSession('') , error: () => this.endSession('') });
+  }
+
+  openSettings(): void {
+    this.settingsError = '';
+    this.settingsOpen = true;
+  }
+
+  saveServiceSettings(): void {
+    const requestsPerMinute = Number(this.serviceSettings.requests_per_minute);
+    const maxContextTokens = Number(this.serviceSettings.max_context_tokens);
+    if (!Number.isInteger(requestsPerMinute) || requestsPerMinute < 1 || requestsPerMinute > 1000 ||
+        !Number.isInteger(maxContextTokens) || maxContextTokens < 1024 || maxContextTokens > 8192) {
+      this.settingsError = 'Введите целые значения: 1–1000 запросов и 1024–8192 tokens.';
+      return;
+    }
+    this.settingsSaving = true;
+    this.settingsError = '';
+    this.api.updateServiceSettings({ requests_per_minute: requestsPerMinute, max_context_tokens: maxContextTokens }).pipe(
+      finalize(() => {
+        this.settingsSaving = false;
+        this.changeDetector.markForCheck();
+      }),
+    ).subscribe({
+      next: (settings) => {
+        this.serviceSettings = settings;
+        this.settingsOpen = false;
+      },
+      error: (error: unknown) => this.settingsError = this.readError(error),
+    });
+  }
+
+  private completeAuthentication(user: AuthUser): void {
+    this.user = user;
     this.api.getHealth().subscribe({
-      next: (health) => (this.ollamaAvailable = health.ollama === 'available'),
+      next: (health) => (this.ollamaAvailable = health.status === 'ok'),
       error: () => (this.ollamaAvailable = false),
     });
     this.api.getModelProfiles().subscribe({
@@ -129,6 +251,10 @@ export class AppComponent implements OnInit {
           );
         }
       },
+    });
+    this.api.getServiceSettings().subscribe({
+      next: (settings) => (this.serviceSettings = settings),
+      error: (error: unknown) => (this.errorMessage = this.readError(error)),
     });
     this.loadChats();
   }
@@ -354,6 +480,7 @@ export class AppComponent implements OnInit {
           this.messages = messages;
         }
       },
+      error: (error: unknown) => this.readError(error),
     });
   }
 
@@ -383,6 +510,14 @@ export class AppComponent implements OnInit {
       return 'Модель не ответила вовремя. Попробуйте ещё раз или уменьшите контекст.';
     }
     if (error instanceof HttpErrorResponse) {
+      if (error.status === 401) {
+        this.endSession('Сессия истекла. Авторизуйтесь снова.');
+        return 'Сессия истекла. Авторизуйтесь снова.';
+      }
+      if (error.status === 429) {
+        const retryAfter = error.headers.get('Retry-After');
+        return `Превышен лимит запросов. Попробуйте через ${retryAfter ?? 'несколько'} сек.`;
+      }
       const detail = error.error?.detail;
       if (typeof detail === 'string') {
         return detail;
@@ -395,5 +530,21 @@ export class AppComponent implements OnInit {
       }
     }
     return 'Не удалось выполнить запрос. Проверьте, что локальные сервисы запущены.';
+  }
+
+  private endSession(message: string): void {
+    this.messageRequestId++;
+    this.sendingChatIds.clear();
+    this.user = null;
+    this.chats = [];
+    this.activeChat = null;
+    this.messages = [];
+    this.loadingMessages = false;
+    this.creatingChat = false;
+    this.sidebarOpen = false;
+    this.settingsOpen = false;
+    this.errorMessage = '';
+    this.authError = message;
+    this.changeDetector.markForCheck();
   }
 }

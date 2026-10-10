@@ -6,8 +6,10 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.chats import router as chats_router
+from app.api.auth import router as auth_router
 from app.api.health import router as health_router
 from app.api.model_profiles import router as model_profiles_router
+from app.api.settings import router as settings_router
 from app.config import get_settings
 from app.database import initialize_database
 
@@ -17,15 +19,17 @@ logging.basicConfig(
 )
 
 settings = get_settings()
-app = FastAPI(title=settings.app_name, version="1.0.0")
+app = FastAPI(title=settings.app_name, version="1.0.0", docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
 app.include_router(health_router)
+app.include_router(auth_router)
+app.include_router(settings_router)
 app.include_router(model_profiles_router)
 app.include_router(chats_router)
 

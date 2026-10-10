@@ -10,6 +10,31 @@ class ChatCreate(BaseModel):
     pass
 
 
+class AuthLogin(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    username: str = Field(min_length=1, max_length=80)
+    password: str = Field(min_length=1, max_length=256)
+
+
+class AuthUser(BaseModel):
+    username: str
+
+
+class ServiceSettingsRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    requests_per_minute: int
+    max_context_tokens: int
+
+
+class ServiceSettingsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    requests_per_minute: int = Field(ge=1, le=1000)
+    max_context_tokens: int = Field(ge=1024, le=8192)
+
+
 class ChatRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -84,6 +109,7 @@ class MessageMetricRead(BaseModel):
     id: int
     message_id: int | None
     chat_id: int
+    authenticated_user_id: int | None
     profile: ProfileName
     model: str
     settings_json: dict
@@ -91,6 +117,10 @@ class MessageMetricRead(BaseModel):
     temperature: float | None
     max_tokens: int | None
     context_window: int | None
+    service_rate_limit: int | None
+    service_max_context: int | None
+    profile_context: int | None
+    effective_context: int | None
     thinking: bool | None
     request_started_at: datetime
     total_latency_ms: float
@@ -104,6 +134,9 @@ class MessageMetricRead(BaseModel):
     prompt_tokens_per_second: float | None
     generation_tokens_per_second: float | None
     history_messages_count: int
+    history_messages_available: int | None
+    history_messages_sent: int | None
+    history_messages_dropped: int | None
     history_chars: int
     system_prompt_chars: int
     user_prompt_chars: int
@@ -150,6 +183,3 @@ class ComparisonExchange(BaseModel):
 
 class HealthRead(BaseModel):
     status: str
-    ollama: str
-    model: str
-    models: dict[ProfileName, str]

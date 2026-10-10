@@ -23,6 +23,7 @@ def enable_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
     if settings.database_url.startswith("sqlite"):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA busy_timeout=5000")
         cursor.close()
 
 
@@ -53,6 +54,12 @@ def initialize_database(target_engine: Engine = engine) -> None:
     if "messages" not in inspector.get_table_names():
         return
     columns = {column["name"] for column in inspector.get_columns("messages")}
+    chat_columns = {column["name"] for column in inspector.get_columns("chats")}
+    metric_columns = (
+        {column["name"] for column in inspector.get_columns("message_metrics")}
+        if "message_metrics" in inspector.get_table_names()
+        else set()
+    )
     with target_engine.begin() as connection:
         if "comparison_id" not in columns:
             connection.execute(
@@ -64,3 +71,52 @@ def initialize_database(target_engine: Engine = engine) -> None:
                 "ON messages (comparison_id)"
             )
         )
+        if "user_id" not in chat_columns:
+            connection.execute(text("ALTER TABLE chats ADD COLUMN user_id INTEGER"))
+        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_chats_user_id ON chats (user_id)"))
+        metric_migrations = {
+            "authenticated_user_id": "INTEGER",
+            "service_rate_limit": "INTEGER",
+            "service_max_context": "INTEGER",
+            "profile_context": "INTEGER",
+            "effective_context": "INTEGER",
+            "history_messages_available": "INTEGER",
+            "history_messages_sent": "INTEGER",
+            "history_messages_dropped": "INTEGER",
+        }
+        for name, sql_type in metric_migrations.items():
+            if name not in metric_columns:
+                connection.execute(text(f"ALTER TABLE message_metrics ADD COLUMN {name} {sql_type}"))
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_message_metrics_authenticated_user_id "
+                "ON message_metrics (authenticated_user_id)"
+            )
+        )
+
+    # The initial account is seeded once; existing local Day 29 chats become its data.
+    from app.models import Chat, ServiceSettings, User
+    from app.services.security import hash_password
+    from app.services.settings import DEFAULT_MAX_CONTEXT_TOKENS, DEFAULT_REQUESTS_PER_MINUTE
+
+    factory = sessionmaker(bind=target_engine, expire_on_commit=False)
+    with factory() as db:
+        admin = db.query(User).filter(User.username == settings.initial_admin_username).one_or_none()
+        if admin is None:
+            admin = User(
+                username=settings.initial_admin_username,
+                password_hash=hash_password(settings.initial_admin_password),
+                is_admin=True,
+            )
+            db.add(admin)
+            db.flush()
+        if db.get(ServiceSettings, 1) is None:
+            db.add(
+                ServiceSettings(
+                    id=1,
+                    requests_per_minute=DEFAULT_REQUESTS_PER_MINUTE,
+                    max_context_tokens=DEFAULT_MAX_CONTEXT_TOKENS,
+                )
+            )
+        db.query(Chat).filter(Chat.user_id.is_(None)).update({Chat.user_id: admin.id})
+        db.commit()
