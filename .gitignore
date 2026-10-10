@@ -18,6 +18,8 @@ venv/
 *.db-wal
 backend/data/
 data/
+benchmark_results*.json
+benchmark_results*.csv
 
 # Angular / Node
 node_modules/

@@ -7,8 +7,9 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.chats import router as chats_router
 from app.api.health import router as health_router
+from app.api.model_profiles import router as model_profiles_router
 from app.config import get_settings
-from app.database import Base, engine
+from app.database import initialize_database
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,6 +26,7 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 app.include_router(health_router)
+app.include_router(model_profiles_router)
 app.include_router(chats_router)
 
 
@@ -36,4 +38,4 @@ async def database_error_handler(_request: Request, exc: SQLAlchemyError) -> JSO
 
 @app.on_event("startup")
 def create_database_tables() -> None:
-    Base.metadata.create_all(bind=engine)
+    initialize_database()

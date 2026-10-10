@@ -1,0 +1,8 @@
+FROM qwen3:8b
+
+# The system prompt is sent by the backend so its exact size is recorded per request.
+PARAMETER temperature 0.2
+PARAMETER num_predict 512
+PARAMETER num_ctx 4096
+PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.08

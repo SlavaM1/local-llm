@@ -2,19 +2,32 @@ name: local-llm
 
 services:
   ollama:
-    image: alpine/socat:1.8.0.3
-    command:
-      - TCP-LISTEN:11434,fork,reuseaddr
-      - TCP:host.docker.internal:11434
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    image: ollama/ollama:0.35.1
+    container_name: ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:11434/api/tags"]
+      test: ["CMD", "ollama", "list"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 10s
+      retries: 12
+      start_period: 15s
     restart: unless-stopped
+
+  ollama-init:
+    image: ollama/ollama:0.35.1
+    entrypoint: ["/bin/sh", "/scripts/init-ollama.sh"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    volumes:
+      - ./models:/models:ro
+      - ./scripts/init-ollama.sh:/scripts/init-ollama.sh:ro
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
 
   backend:
     build:
@@ -22,7 +35,6 @@ services:
     environment:
       DATABASE_URL: sqlite:////app/data/chats.db
       OLLAMA_URL: http://ollama:11434
-      OLLAMA_MODEL: qwen3:8b
       OLLAMA_TIMEOUT_SECONDS: "120"
       CORS_ORIGINS: http://localhost:3000
     ports:
@@ -30,8 +42,8 @@ services:
     volumes:
       - chat_data:/app/data
     depends_on:
-      ollama:
-        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -58,3 +70,4 @@ services:
 
 volumes:
   chat_data:
+  ollama_data:

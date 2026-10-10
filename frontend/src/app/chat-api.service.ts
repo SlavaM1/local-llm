@@ -1,8 +1,17 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map, timeout } from 'rxjs';
 
-import { Chat, Health, Message, MessageExchange } from './models';
+import {
+  Chat,
+  CompareExchange,
+  CompareRequest,
+  Health,
+  Message,
+  MessageExchange,
+  ModelProfilesResponse,
+  SendMessageRequest,
+} from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ChatApiService {
@@ -29,9 +38,27 @@ export class ChatApiService {
     return this.http.get<Message[]>(`${this.baseUrl}/chats/${chatId}/messages`);
   }
 
-  sendMessage(chatId: number, content: string): Observable<MessageExchange> {
-    return this.http.post<MessageExchange>(`${this.baseUrl}/chats/${chatId}/messages`, {
-      content,
-    });
+  getModelProfiles(): Observable<ModelProfilesResponse> {
+    return this.http
+      .get<Partial<ModelProfilesResponse>>(`${this.baseUrl}/model-profiles`)
+      .pipe(
+        timeout({ first: 15_000 }),
+        map((response) => ({
+          profiles: Array.isArray(response.profiles) ? response.profiles : [],
+          allowed: response.allowed ?? {},
+        })),
+      );
+  }
+
+  sendMessage(chatId: number, request: SendMessageRequest): Observable<MessageExchange> {
+    return this.http
+      .post<MessageExchange>(`${this.baseUrl}/chats/${chatId}/messages`, request)
+      .pipe(timeout({ first: 135_000 }));
+  }
+
+  compareMessages(chatId: number, request: CompareRequest): Observable<CompareExchange> {
+    return this.http
+      .post<CompareExchange>(`${this.baseUrl}/chats/${chatId}/compare`, request)
+      .pipe(timeout({ first: 260_000 }));
   }
 }

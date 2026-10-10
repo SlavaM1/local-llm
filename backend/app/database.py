@@ -1,7 +1,7 @@
 from collections.abc import Generator
 from pathlib import Path
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import Engine, create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
@@ -39,3 +39,28 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+def initialize_database(target_engine: Engine = engine) -> None:
+    # Import registers all model tables before create_all is evaluated.
+    from app import models  # noqa: F401
+
+    Base.metadata.create_all(bind=target_engine)
+    if target_engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(target_engine)
+    if "messages" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("messages")}
+    with target_engine.begin() as connection:
+        if "comparison_id" not in columns:
+            connection.execute(
+                text("ALTER TABLE messages ADD COLUMN comparison_id VARCHAR(36)")
+            )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_messages_comparison_id "
+                "ON messages (comparison_id)"
+            )
+        )

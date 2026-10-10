@@ -7,7 +7,6 @@ class Settings(BaseSettings):
     app_name: str = "Local LLM API"
     database_url: str = "sqlite:////app/data/chats.db"
     ollama_url: str = "http://ollama:11434"
-    ollama_model: str = "qwen3:8b"
     ollama_timeout_seconds: float = 120.0
     cors_origins: str = "http://localhost:3000"
 

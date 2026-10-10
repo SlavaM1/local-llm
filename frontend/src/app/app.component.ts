@@ -1,10 +1,17 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
-import { finalize } from 'rxjs';
+import { TimeoutError, finalize } from 'rxjs';
 
 import { ChatApiService } from './chat-api.service';
 import { ChatPanelComponent } from './chat-panel.component';
-import { Chat, Message } from './models';
+import {
+  DEFAULT_OPTIMIZED_SETTINGS,
+  Chat,
+  Message,
+  ModelProfile,
+  ModelSettings,
+  ProfileName,
+} from './models';
 import { SidebarComponent } from './sidebar.component';
 
 @Component({
@@ -34,7 +41,13 @@ import { SidebarComponent } from './sidebar.component';
         [busy]="isSending(activeChat?.id)"
         [loadingHistory]="loadingMessages"
         [errorMessage]="errorMessage"
+        [selectedProfile]="selectedProfile"
+        [optimizedSettings]="optimizedSettings"
+        [modelProfiles]="modelProfiles"
         (send)="sendMessage($event)"
+        (compare)="compareMessages($event)"
+        (profileChange)="selectedProfile = $event"
+        (settingsChange)="optimizedSettings = $event"
         (newChat)="createChat()"
         (menu)="sidebarOpen = true"
       />
@@ -69,6 +82,36 @@ export class AppComponent implements OnInit {
   loadingMessages = false;
   sidebarOpen = false;
   errorMessage = '';
+  selectedProfile: ProfileName = 'optimized';
+  optimizedSettings: ModelSettings = { ...DEFAULT_OPTIMIZED_SETTINGS };
+  modelProfiles: ModelProfile[] = [
+    {
+      id: 'baseline',
+      label: 'Baseline',
+      model: 'qwen3:8b',
+      system_prompt: '',
+      temperature: null,
+      max_tokens: null,
+      context_window: null,
+      top_p: null,
+      repeat_penalty: null,
+      thinking: false,
+      customizable: false,
+    },
+    {
+      id: 'optimized',
+      label: 'Optimized',
+      model: 'qwen3:8b',
+      system_prompt: '',
+      temperature: DEFAULT_OPTIMIZED_SETTINGS.temperature,
+      max_tokens: DEFAULT_OPTIMIZED_SETTINGS.max_tokens,
+      context_window: DEFAULT_OPTIMIZED_SETTINGS.context_window,
+      top_p: null,
+      repeat_penalty: null,
+      thinking: DEFAULT_OPTIMIZED_SETTINGS.thinking,
+      customizable: true,
+    },
+  ];
   private messageRequestId = 0;
   private chatListRevision = 0;
   private readonly sendingChatIds = new Set<number>();
@@ -77,6 +120,15 @@ export class AppComponent implements OnInit {
     this.api.getHealth().subscribe({
       next: (health) => (this.ollamaAvailable = health.ollama === 'available'),
       error: () => (this.ollamaAvailable = false),
+    });
+    this.api.getModelProfiles().subscribe({
+      next: ({ profiles }) => {
+        if (profiles.length > 0) {
+          this.modelProfiles = this.modelProfiles.map(
+            (fallback) => profiles.find((profile) => profile.id === fallback.id) ?? fallback,
+          );
+        }
+      },
     });
     this.loadChats();
   }
@@ -167,19 +219,20 @@ export class AppComponent implements OnInit {
     const temporaryId = -Date.now();
     this.messages = [
       ...this.messages,
-      {
-        id: temporaryId,
-        chat_id: chat.id,
-        role: 'user',
-        content,
-        created_at: new Date().toISOString(),
-      },
+      this.temporaryUserMessage(temporaryId, chat.id, content, null),
     ];
     this.sendingChatIds.add(chat.id);
     this.errorMessage = '';
 
+    const profile = this.selectedProfile;
+    const settings = { ...this.optimizedSettings };
+
     this.api
-      .sendMessage(chat.id, content)
+      .sendMessage(chat.id, {
+        content,
+        profile,
+        ...(profile === 'optimized' ? { settings } : {}),
+      })
       .pipe(
         finalize(() => {
           this.sendingChatIds.delete(chat.id);
@@ -205,8 +258,65 @@ export class AppComponent implements OnInit {
           }
           this.ollamaAvailable = true;
         },
-        error: (error: HttpErrorResponse) => {
-          if (error.status === 0 || error.status === 503) {
+        error: (error: unknown) => {
+          if (this.isModelUnavailable(error)) {
+            this.ollamaAvailable = false;
+          }
+          if (this.activeChat?.id === chat.id) {
+            this.errorMessage = this.readError(error);
+            this.reloadMessages(chat.id);
+          }
+        },
+      });
+  }
+
+  compareMessages(content: string): void {
+    const chat = this.activeChat;
+    if (!chat || this.sendingChatIds.has(chat.id)) {
+      return;
+    }
+
+    const temporaryId = -Date.now();
+    const pendingComparisonId = `pending-${chat.id}-${Math.abs(temporaryId)}`;
+    this.messages = [
+      ...this.messages,
+      this.temporaryUserMessage(temporaryId, chat.id, content, pendingComparisonId),
+    ];
+    this.sendingChatIds.add(chat.id);
+    this.errorMessage = '';
+    const optimizedSettings = { ...this.optimizedSettings };
+
+    this.api
+      .compareMessages(chat.id, { content, optimized_settings: optimizedSettings })
+      .pipe(
+        finalize(() => {
+          this.sendingChatIds.delete(chat.id);
+          this.changeDetector.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (exchange) => {
+          this.chatListRevision++;
+          this.chats = [exchange.chat, ...this.chats.filter((item) => item.id !== chat.id)];
+          if (this.activeChat?.id === chat.id) {
+            const returnedMessages = [
+              exchange.user_message,
+              exchange.baseline_message,
+              exchange.optimized_message,
+            ];
+            const returnedIds = new Set(returnedMessages.map((message) => message.id));
+            this.messages = [
+              ...this.messages.filter(
+                (message) => message.id !== temporaryId && !returnedIds.has(message.id),
+              ),
+              ...returnedMessages,
+            ].sort((left, right) => left.id - right.id);
+            this.activeChat = exchange.chat;
+          }
+          this.ollamaAvailable = true;
+        },
+        error: (error: unknown) => {
+          if (this.isModelUnavailable(error)) {
             this.ollamaAvailable = false;
           }
           if (this.activeChat?.id === chat.id) {
@@ -247,10 +357,42 @@ export class AppComponent implements OnInit {
     });
   }
 
-  private readError(error: HttpErrorResponse): string {
-    const detail = error.error?.detail;
-    if (typeof detail === 'string') {
-      return detail;
+  private temporaryUserMessage(
+    id: number,
+    chatId: number,
+    content: string,
+    comparisonId: string | null,
+  ): Message {
+    return {
+      id,
+      chat_id: chatId,
+      role: 'user',
+      content,
+      created_at: new Date().toISOString(),
+      comparison_id: comparisonId,
+      metrics: null,
+    };
+  }
+
+  private isModelUnavailable(error: unknown): boolean {
+    return error instanceof HttpErrorResponse && (error.status === 0 || error.status === 503);
+  }
+
+  private readError(error: unknown): string {
+    if (error instanceof TimeoutError) {
+      return 'Модель не ответила вовремя. Попробуйте ещё раз или уменьшите контекст.';
+    }
+    if (error instanceof HttpErrorResponse) {
+      const detail = error.error?.detail;
+      if (typeof detail === 'string') {
+        return detail;
+      }
+      if (error.status === 0) {
+        return 'Нет связи с локальным API. Проверьте, что сервис запущен.';
+      }
+      if (error.status === 200) {
+        return 'Сервер вернул ответ в неожиданном формате.';
+      }
     }
     return 'Не удалось выполнить запрос. Проверьте, что локальные сервисы запущены.';
   }
